@@ -448,11 +448,11 @@ local function UpdateBButtonText(id, text, isWaiting, isGold)
     end
 end
 
-local BombJump = shared.CreateTab("Bomb Jump+", "/aux0on/BJPIcon/refs/heads/main/Untitled163_20260918201001")
+local BombJump = shared.CreateTab("Bomb Jump+", "/UrexampleGD/ok-icon/refs/heads/main/images__2_-removebg-preview.png")
 
 local aboutSection = BombJump:AddSection("About", "Information")
 
-aboutSection:AddParagraph("Bomb Jump+", "Plugin Made by @lzzzx")
+aboutSection:AddParagraph("Bomb Jump+", "Plugin Made by @lzzx or 187 but I made this better")
 
 aboutSection:AddToggle("Mute Button SFX", function(bool)
     muteButtonSounds = bool
