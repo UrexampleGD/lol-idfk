@@ -448,7 +448,7 @@ local function UpdateBButtonText(id, text, isWaiting, isGold)
     end
 end
 
-local BombJump = shared.CreateTab("Bomb Jump+", "/UrexampleGD/ok-icon/refs/heads/main/images__2_-removebg-preview.png")
+local BombJump = shared.CreateTab("Bomb Jump+", "/UrexampleGD/ok-icon/refs/heads/main/images__2_-removebg-preview")
 
 local aboutSection = BombJump:AddSection("About", "Information")
 
