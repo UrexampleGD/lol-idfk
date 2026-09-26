@@ -476,7 +476,7 @@ local section = BombJump:AddSection("Bomb Jump+", "MM2 / MMV")
 local CONFIG = {
     CooldownTime = 22.0,
     LaunchPower = 58,
-    DefaultSize = 90,
+    DefaultSize = 200,
     EquipDelay = 0.6
 }
 
