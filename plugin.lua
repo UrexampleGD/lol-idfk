@@ -139,7 +139,9 @@ local function BB_MakeDraggable(gui, func, ripple, sound)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging, hasMoved = true, false
             dragStart, startPos = input.Position, gui.Position
-            __TS:Create(gui, tInfo, {Size = __UD2(0, 220, 0, 82.5), TextSize = 26.4}):Play()
+            local restingSize = __UD2(0, gui.Size.X.Offset, 0, gui.Size.Y.Offset)
+            local restingTextSize = gui.TextSize
+            __TS:Create(gui, tInfo, {Size = __UD2(0, restingSize.X.Offset + 20, 0, restingSize.Y.Offset + 7.5), TextSize = restingTextSize + 2.4}):Play()
             local absPos = gui.AbsolutePosition
             ripple.Position = __UD2(0, input.Position.X - absPos.X, 0, input.Position.Y - absPos.Y)
             ripple.Size = __UD2(0, 0, 0, 0)
@@ -153,7 +155,7 @@ local function BB_MakeDraggable(gui, func, ripple, sound)
             rel = __UIS.InputEnded:Connect(function(endInput)
                 if endInput.UserInputType == input.UserInputType then
                     dragging = false
-                    __TS:Create(gui, tInfo, {Size = __UD2(0, 200, 0, 75), TextSize = 24}):Play()
+                    __TS:Create(gui, tInfo, {Size = restingSize, TextSize = restingTextSize}):Play()
                     if not hasMoved then bb_safecallback(func) end
                     SavePosition(gui.Name, gui.Position)
                     rel:Disconnect()
@@ -452,7 +454,7 @@ local BombJump = shared.CreateTab("Bomb Jump+", "/UrexampleGD/ok-icon/refs/heads
 
 local aboutSection = BombJump:AddSection("About", "Information")
 
-aboutSection:AddParagraph("Bomb Jump+", "Plugin Made by @lzzx or 187 but I made this better")
+aboutSection:AddParagraph("Bomb Jump+", "Plugin Made by @lzzzx")
 
 aboutSection:AddToggle("Mute Button SFX", function(bool)
     muteButtonSounds = bool
@@ -759,7 +761,7 @@ local function GBJStartCooldown()
     if bigBtn then bigBtn.Text = "Wait" end
     if gbjBindButton then UpdateBButtonText("goldbombjump_bind", "Wait", true, true) end
     task.spawn(function()
-        for i = 5, 1, -1 do
+        for i = 9, 1, -1 do
             if not gbjOnCooldown then break end
             local bigBtn = BBSystem.Buttons["goldbombjump_big"]
             if bigBtn then bigBtn.Text = tostring(i) end
