@@ -522,7 +522,9 @@ local function ResetCooldown()
     onCooldown = false
     local bigBtn = BBSystem.Buttons["bombjump_big"]
     if bigBtn then bigBtn.Text = "Bomb Jump" end
-    if bjBindButton then UpdateBButtonText("bombjump_bind", "BJ", false, false) end
+    if BindableButtons.Buttons["bombjump_bind"] then
+        UpdateBButtonText("bombjump_bind", "BJ", false, false)
+    end
 end
 
 local function StartCooldown()
@@ -530,13 +532,17 @@ local function StartCooldown()
     debounce = false
     local bigBtn = BBSystem.Buttons["bombjump_big"]
     if bigBtn then bigBtn.Text = "Wait" end
-    if bjBindButton then UpdateBButtonText("bombjump_bind", "Wait", true, false) end
+    if BindableButtons.Buttons["bombjump_bind"] then
+        UpdateBButtonText("bombjump_bind", "Wait", true, false)
+    end
     task.spawn(function()
         for i = CONFIG.CooldownTime, 1, -1 do
             if not onCooldown then break end
             local bigBtn = BBSystem.Buttons["bombjump_big"]
             if bigBtn then bigBtn.Text = tostring(i) end
-            if bjBindButton then UpdateBButtonText("bombjump_bind", tostring(i), true, false) end
+            if BindableButtons.Buttons["bombjump_bind"] then
+                UpdateBButtonText("bombjump_bind", tostring(i), true, false)
+            end
             task.wait(1)
         end
         if onCooldown then ResetCooldown() end
@@ -751,7 +757,9 @@ local function GBJResetCooldown()
     gbjOnCooldown = false
     local bigBtn = BBSystem.Buttons["goldbombjump_big"]
     if bigBtn then bigBtn.Text = "Gold Bomb Jump" end
-    if gbjBindButton then UpdateBButtonText("goldbombjump_bind", "GBJ", false, true) end
+    if BindableButtons.Buttons["goldbombjump_bind"] then
+        UpdateBButtonText("goldbombjump_bind", "GBJ", false, true)
+    end
 end
 
 local function GBJStartCooldown()
@@ -759,13 +767,17 @@ local function GBJStartCooldown()
     gbjDebounce = false
     local bigBtn = BBSystem.Buttons["goldbombjump_big"]
     if bigBtn then bigBtn.Text = "Wait" end
-    if gbjBindButton then UpdateBButtonText("goldbombjump_bind", "Wait", true, true) end
+    if BindableButtons.Buttons["goldbombjump_bind"] then
+        UpdateBButtonText("goldbombjump_bind", "Wait", true, true)
+    end
     task.spawn(function()
-        for i = 5, 1, -1 do
+        for i = 9, 1, -1 do
             if not gbjOnCooldown then break end
             local bigBtn = BBSystem.Buttons["goldbombjump_big"]
             if bigBtn then bigBtn.Text = tostring(i) end
-            if gbjBindButton then UpdateBButtonText("goldbombjump_bind", tostring(i), true, true) end
+            if BindableButtons.Buttons["goldbombjump_bind"] then
+                UpdateBButtonText("goldbombjump_bind", tostring(i), true, true)
+            end
             task.wait(1)
         end
         if gbjOnCooldown then GBJResetCooldown() end
