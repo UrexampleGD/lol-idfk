@@ -771,7 +771,7 @@ local function GBJStartCooldown()
         UpdateBButtonText("goldbombjump_bind", "Wait", true, true)
     end
     task.spawn(function()
-        for i = 9, 1, -1 do
+        for i = 5, 1, -1 do
             if not gbjOnCooldown then break end
             local bigBtn = BBSystem.Buttons["goldbombjump_big"]
             if bigBtn then bigBtn.Text = tostring(i) end
