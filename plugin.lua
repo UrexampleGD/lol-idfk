@@ -44,6 +44,7 @@ local RootMaid = Maid.new()
 
 local shared = odh_shared_plugins
 
+-- when i skidded 187 plugin i found this so maybe its some goodies i suppose so i added it
 task.spawn(function()
     pcall(function()
         shared.load_from_github_url("/aux0on/CrashHandler/refs/heads/main/Prevention.lua")
