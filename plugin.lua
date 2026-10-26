@@ -324,7 +324,7 @@ local function Bind_MakeDraggable(gui, maid, ripple, sound, clickFunc)
     local dragging, dragInput, dragStart, startPos
     local hasMoved = false
 
-    maid:GiveTask(gui.InputBegan:Connect(function(input)
+    maid:givetask(gui.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging, dragStart, startPos = true, input.Position, gui.Position
             hasMoved = false
@@ -349,13 +349,13 @@ local function Bind_MakeDraggable(gui, maid, ripple, sound, clickFunc)
         end
     end))
 
-    maid:GiveTask(gui.InputChanged:Connect(function(input)
+    maid:givetask(gui.InputChanged:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end))
 
-    maid:GiveTask(__UIS.InputChanged:Connect(function(input)
+    maid:givetask(__UIS.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
             if delta.Magnitude > 7 then hasMoved = true end
@@ -387,7 +387,7 @@ local function AddBButton(id, text, clickFunc, isGold)
     ImageButton.ClipsDescendants = false
     ImageButton.AutoButtonColor = false
     ImageButton.Parent = Bind_GetStorage()
-    buttonMaid:GiveTask(ImageButton)
+    buttonMaid:givetask(ImageButton)
 
     local TextLabel = Instance.new("TextLabel", ImageButton)
     TextLabel.Name = "@Text"
@@ -427,7 +427,7 @@ local function AddBButton(id, text, clickFunc, isGold)
     sound.Parent = ImageButton
 
     Bind_MakeDraggable(ImageButton, buttonMaid, ripple, sound, clickFunc)
-    buttonMaid:GiveTask(__RS.RenderStepped:Connect(function()
+    buttonMaid:givetask(__RS.RenderStepped:Connect(function()
         Stroke.Rotation = (Stroke.Rotation + 1) % 360
     end))
 
@@ -458,7 +458,8 @@ local function UpdateBButtonText(id, text, isWaiting, isGold)
     end
 end
 
-local BombJump = shared.CreateTab("Bomb Jump+", "/UrexampleGD/ok-icon/refs/heads/main/images__2_-removebg-preview")
+-- Icon completely removed to prevent "Not a valid github repository" error
+local BombJump = shared.CreateTab("Bomb Jump+")
 
 local aboutSection = BombJump:AddSection("About", "Information")
 
@@ -512,7 +513,7 @@ local function PlaySound(snd)
     pcall(function() if snd then Services.SoundService:PlayLocalSound(snd) end end)
 end
 
--- FIXED BUG: Strict air check to prevent jumping on stairs/slopes
+-- FIXED: Strict floor check prevents activating while walking up stairs
 local function IsPlayerInAir()
     local character = LocalPlayer.Character
     if not character then return false end
@@ -520,12 +521,12 @@ local function IsPlayerInAir()
     local humanoid = character:FindFirstChild("Humanoid")
     if not humanoid then return false end
 
-    -- If you are touching the ground (stairs, slopes, etc.), you are NOT in the air
+    -- If touching ground (stairs, slope, floor), do not allow.
     if humanoid.FloorMaterial ~= Enum.Material.Air then
         return false
     end
 
-    -- Must be in a jumping or freefall state
+    -- Must actually be in a jumping state
     local state = humanoid:GetState()
     if state == Enum.HumanoidStateType.Jumping or 
        state == Enum.HumanoidStateType.Freefall then
@@ -665,41 +666,43 @@ local activeTouches = {}
 local TAP_MOVEMENT_THRESHOLD = 10
 local TAP_TIME_THRESHOLD = 0.3
 
-BombJumpMaid:GiveTasks(
-    Services.UserInputService.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            activeTouches[input] = {startPosition = input.Position, startTime = tick(), moved = false}
+-- FIXED: Replaced GiveTasks with individual givetask calls to prevent crash
+BombJumpMaid:givetask(Services.UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        activeTouches[input] = {startPosition = input.Position, startTime = tick(), moved = false}
+    end
+end))
+
+BombJumpMaid:givetask(Services.UserInputService.InputChanged:Connect(function(input)
+    local data = activeTouches[input]
+    if data and (input.Position - data.startPosition).Magnitude > TAP_MOVEMENT_THRESHOLD then data.moved = true end
+end))
+
+BombJumpMaid:givetask(Services.UserInputService.InputEnded:Connect(function(input, gp)
+    if gp then activeTouches[input] = nil return end
+    local data = activeTouches[input]
+    if data and not data.moved and tick() - data.startTime <= TAP_TIME_THRESHOLD then
+        if bombJumpEnabled and not onCooldown and not debounce then
+            if IsHoldingBomb() and IsPlayerInAir() then FastBombJump() end
         end
-    end),
-    Services.UserInputService.InputChanged:Connect(function(input)
-        local data = activeTouches[input]
-        if data and (input.Position - data.startPosition).Magnitude > TAP_MOVEMENT_THRESHOLD then data.moved = true end
-    end),
-    Services.UserInputService.InputEnded:Connect(function(input, gp)
-        if gp then activeTouches[input] = nil return end
-        local data = activeTouches[input]
-        if data and not data.moved and tick() - data.startTime <= TAP_TIME_THRESHOLD then
-            if bombJumpEnabled and not onCooldown and not debounce then
-                if IsHoldingBomb() and IsPlayerInAir() then FastBombJump() end
-            end
-        end
-        activeTouches[input] = nil
-    end),
-    LocalPlayer.CharacterAdded:Connect(function()
-        ResetCooldown()
-        activeTouches = {}
-        justRespawned = true
-        task.wait(1)
-        justRespawned = false
-        if autoGetBomb then
-            task.wait(0.2)
-            pcall(function() Services.ReplicatedStorage.Remotes.Extras.ReplicateToy:InvokeServer("FakeBomb") end)
-            task.wait(0.1)
-            UnequipBomb()
-        end
-    end)
-)
+    end
+    activeTouches[input] = nil
+end))
+
+BombJumpMaid:givetask(LocalPlayer.CharacterAdded:Connect(function()
+    ResetCooldown()
+    activeTouches = {}
+    justRespawned = true
+    task.wait(1)
+    justRespawned = false
+    if autoGetBomb then
+        task.wait(0.2)
+        pcall(function() Services.ReplicatedStorage.Remotes.Extras.ReplicateToy:InvokeServer("FakeBomb") end)
+        task.wait(0.1)
+        UnequipBomb()
+    end
+end))
 
 section:AddLabel("Bomb Jump Options")
 section:AddToggle("Enable Auto Bomb Jump", function(bool) bombJumpEnabled = bool end)
