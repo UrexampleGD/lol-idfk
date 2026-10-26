@@ -4,50 +4,57 @@
 -- # Have fun using this skidded thing!
 -- # Your Welcome!
 
-local table_insert = table.insert
+local insert = table.insert
 
-local Maid = {}
-Maid.__index = Maid
+local maid = {}
+maid.__index = maid
 
-function Maid.new()
-    return setmetatable({_tasks = {}, _destroyed = false}, Maid)
+function maid.new()
+    return setmetatable({tasks = {}, destroyed = false}, maid)
 end
 
-function Maid:GiveTask(task)
-    if self._destroyed then self:_cleanupTask(task) return end
-    table_insert(self._tasks, task)
+function maid:givetask(task)
+    if self.destroyed then self:cleantask(task) return end
+    insert(self.tasks, task)
     return task
 end
 
-function Maid:GiveTasks(...)
-    for _, task in ipairs({...}) do self:GiveTask(task) end
+function maid:cleantask(task)
+    local kind = typeof(task)
+    if kind == "RBXScriptConnection" then task:Disconnect()
+    elseif kind == "Instance" then task:Destroy()
+    elseif kind == "function" then task()
+    elseif kind == "table" and type(task.Destroy) == "function" then task:Destroy() end
 end
 
-function Maid:_cleanupTask(task)
-    local taskType = typeof(task)
-    if taskType == "RBXScriptConnection" then task:Disconnect()
-    elseif taskType == "Instance" then task:Destroy()
-    elseif taskType == "function" then task()
-    elseif taskType == "table" and type(task.Destroy) == "function" then task:Destroy() end
+function maid:clean()
+    if self.destroyed then return end
+    self.destroyed = true
+    for _, task in ipairs(self.tasks) do
+        self:cleantask(task)
+    end
+    self.tasks = {}
 end
 
-function Maid:DoCleaning()
-    if self._destroyed then return end
-    self._destroyed = true
-    for _, task in ipairs(self._tasks) do self:_cleanupTask(task) end
-    self._tasks = {}
-end
+function maid:destroy() self:clean() end
 
-function Maid:Destroy() self:DoCleaning() end
-
-local RootMaid = Maid.new()
+local rootmaid = maid.new()
 
 local shared = odh_shared_plugins
+if not shared and getgenv then
+    local gv = getgenv()
+    if type(gv) == "table" and type(gv.shared) == "table" then
+        shared = gv.shared
+    end
+end
 
--- when i skidded 187 plugin i found this so maybe its some goodies i suppose so i added it
+if not shared or type(shared.CreateTab) ~= "function" then
+    return
+end
+
 task.spawn(function()
     pcall(function()
-        shared.load_from_github_url("/aux0on/CrashHandler/refs/heads/main/Prevention.lua")
+        shared.loadfromurl("/aux0on/CrashHandler/refs/heads/main/Prevention.lua")
     end)
 end)
 
@@ -361,7 +368,7 @@ end
 local function AddBButton(id, text, clickFunc, isGold)
     if BindableButtons.Buttons[id] then return end
 
-    local buttonMaid = Maid.new()
+    local buttonMaid = maid.new()
     local camera = workspace.CurrentCamera
     local screen = camera.ViewportSize
     local buttonSizeY = 0.11
@@ -492,8 +499,8 @@ local bjBindButton = nil
 
 local BOMB_NAMES = {"FakeBomb"}
 
-local BombJumpMaid = Maid.new()
-RootMaid:GiveTask(BombJumpMaid)
+local BombJumpMaid = maid.new()
+rootmaid:givetask(BombJumpMaid)
 
 local Sounds = {Click = Instance.new("Sound"), Cooldown = Instance.new("Sound")}
 Sounds.Click.SoundId = "rbxassetid://6895079853"
@@ -505,18 +512,27 @@ local function PlaySound(snd)
     pcall(function() if snd then Services.SoundService:PlayLocalSound(snd) end end)
 end
 
+-- FIXED BUG: Strict air check to prevent jumping on stairs/slopes
 local function IsPlayerInAir()
     local character = LocalPlayer.Character
     if not character then return false end
+
     local humanoid = character:FindFirstChild("Humanoid")
     if not humanoid then return false end
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return false end
+
+    -- If you are touching the ground (stairs, slopes, etc.), you are NOT in the air
+    if humanoid.FloorMaterial ~= Enum.Material.Air then
+        return false
+    end
+
+    -- Must be in a jumping or freefall state
     local state = humanoid:GetState()
-    if state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.FallingDown or state == Enum.HumanoidStateType.Freefall then
+    if state == Enum.HumanoidStateType.Jumping or 
+       state == Enum.HumanoidStateType.Freefall then
         return true
     end
-    return math.abs(rootPart.Velocity.Y) > 0.5
+
+    return false
 end
 
 local function ResetCooldown()
@@ -737,246 +753,3 @@ section:AddSlider("BJ Bind Button Size", 5, 25, 11, function(value)
 end)
 
 section:AddKeybind("Bomb Jump Keybind", "E", FastBombJump)
-
-local gbjSection = BombJump:AddSection("Gold Bomb Jump+", "MMV")
-
-local gbjOnCooldown = false
-local goldBombJumpEnabled = false
-local gbjDebounce = false
-local autoGetGoldBomb = false
-local gbjJustRespawned = false
-local gbjBigButtonSize = 200
-local gbjBindButtonSize = 0.11
-local gbjBindButton = nil
-
-local GOLD_BOMB_NAMES = {"GoldFakeBomb", "GoldBomb"}
-
-local GoldBombJumpMaid = Maid.new()
-RootMaid:GiveTask(GoldBombJumpMaid)
-
-local function GBJResetCooldown()
-    gbjOnCooldown = false
-    local bigBtn = BBSystem.Buttons["goldbombjump_big"]
-    if bigBtn then bigBtn.Text = "Gold Bomb Jump" end
-    if BindableButtons.Buttons["goldbombjump_bind"] then
-        UpdateBButtonText("goldbombjump_bind", "GBJ", false, true)
-    end
-end
-
-local function GBJStartCooldown()
-    gbjOnCooldown = true
-    gbjDebounce = false
-    local bigBtn = BBSystem.Buttons["goldbombjump_big"]
-    if bigBtn then bigBtn.Text = "Wait" end
-    if BindableButtons.Buttons["goldbombjump_bind"] then
-        UpdateBButtonText("goldbombjump_bind", "Wait", true, true)
-    end
-    task.spawn(function()
-        for i = 5, 1, -1 do
-            if not gbjOnCooldown then break end
-            local bigBtn = BBSystem.Buttons["goldbombjump_big"]
-            if bigBtn then bigBtn.Text = tostring(i) end
-            if BindableButtons.Buttons["goldbombjump_bind"] then
-                UpdateBButtonText("goldbombjump_bind", tostring(i), true, true)
-            end
-            task.wait(1)
-        end
-        if gbjOnCooldown then GBJResetCooldown() end
-    end)
-end
-
-local function GBJGetCenterPosition()
-    local character = LocalPlayer.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        local camera = Services.Workspace.CurrentCamera
-        return character.HumanoidRootPart.Position + (camera.CFrame.LookVector * 5)
-    end
-    return nil
-end
-
-local function GBJMakeCharacterJump()
-    local character = LocalPlayer.Character
-    if character then
-        local humanoid = character:FindFirstChild("Humanoid")
-        if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end
-
-local function UnequipGoldBomb()
-    task.spawn(function()
-        local character = LocalPlayer.Character
-        if character then
-            for _, goldName in ipairs(GOLD_BOMB_NAMES) do
-                local bomb = character:FindFirstChild(goldName)
-                if bomb then bomb.Parent = LocalPlayer.Backpack or character break end
-            end
-        end
-    end)
-end
-
-local function GetAnyGoldBomb()
-    local character = LocalPlayer.Character
-    if not character then return false, nil end
-    for _, goldName in ipairs(GOLD_BOMB_NAMES) do
-        local bomb = character:FindFirstChild(goldName)
-        if bomb then return true, bomb end
-    end
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack then
-        for _, goldName in ipairs(GOLD_BOMB_NAMES) do
-            local bomb = backpack:FindFirstChild(goldName)
-            if bomb then bomb.Parent = character task.wait(0.05) return true, bomb end
-        end
-    end
-    for attempt = 1, 3 do
-        for _, goldName in ipairs(GOLD_BOMB_NAMES) do
-            pcall(function() Services.ReplicatedStorage.Remotes.Extras.ReplicateToy:InvokeServer(goldName) end)
-        end
-        task.wait(0.1)
-        for _, goldName in ipairs(GOLD_BOMB_NAMES) do
-            local bomb = character:FindFirstChild(goldName)
-            if bomb then return true, bomb end
-            if backpack then
-                bomb = backpack:FindFirstChild(goldName)
-                if bomb then bomb.Parent = character task.wait(0.05) return true, bomb end
-            end
-        end
-        task.wait(0.2)
-    end
-    return false, nil
-end
-
-local function FastGoldBombJump()
-    if not IsPlayerInAir() then return end
-    if gbjOnCooldown or gbjDebounce or gbjJustRespawned then return end
-    gbjDebounce = true
-    local success, bomb = GetAnyGoldBomb()
-    if success and bomb then
-        local position = GBJGetCenterPosition()
-        if position then
-            local remote = bomb:FindFirstChild("Remote")
-            if remote then
-                PlaySound(Sounds.Click)
-                pcall(function() remote:FireServer(CFrame.new(position), 50) end)
-            end
-            local char = LocalPlayer.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root then
-                local currentVelocity = root.AssemblyLinearVelocity
-                root.AssemblyLinearVelocity = Vector3.new(currentVelocity.X, CONFIG.LaunchPower, currentVelocity.Z)
-            end
-            GBJMakeCharacterJump()
-            task.spawn(function() task.wait(CONFIG.EquipDelay) UnequipGoldBomb() end)
-            task.spawn(function() task.wait(0.1) GBJStartCooldown() end)
-        end
-    end
-    task.spawn(function() task.wait(0.5) gbjDebounce = false end)
-end
-
-local function IsHoldingGoldBomb()
-    local character = LocalPlayer.Character
-    if not character then return false end
-    for _, goldName in ipairs(GOLD_BOMB_NAMES) do
-        if character:FindFirstChild(goldName) then return true end
-    end
-    return false
-end
-
-local gbjActiveTouches = {}
-
-GoldBombJumpMaid:GiveTasks(
-    Services.UserInputService.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            gbjActiveTouches[input] = {startPosition = input.Position, startTime = tick(), moved = false}
-        end
-    end),
-    Services.UserInputService.InputChanged:Connect(function(input)
-        local data = gbjActiveTouches[input]
-        if data and (input.Position - data.startPosition).Magnitude > TAP_MOVEMENT_THRESHOLD then data.moved = true end
-    end),
-    Services.UserInputService.InputEnded:Connect(function(input, gp)
-        if gp then gbjActiveTouches[input] = nil return end
-        local data = gbjActiveTouches[input]
-        if data and not data.moved and tick() - data.startTime <= TAP_TIME_THRESHOLD then
-            if goldBombJumpEnabled and not gbjOnCooldown and not gbjDebounce then
-                if IsHoldingGoldBomb() and IsPlayerInAir() then FastGoldBombJump() end
-            end
-        end
-        gbjActiveTouches[input] = nil
-    end),
-    LocalPlayer.CharacterAdded:Connect(function()
-        GBJResetCooldown()
-        gbjActiveTouches = {}
-        gbjJustRespawned = true
-        task.wait(1)
-        gbjJustRespawned = false
-        if autoGetGoldBomb then
-            task.wait(0.2)
-            for _, goldName in ipairs(GOLD_BOMB_NAMES) do
-                pcall(function()
-                    Services.ReplicatedStorage.Remotes.Extras.ReplicateToy:InvokeServer(goldName)
-                end)
-            end
-            task.wait(0.1)
-            UnequipGoldBomb()
-        end
-    end)
-)
-
-gbjSection:AddLabel("Gold Bomb Jump Options")
-gbjSection:AddToggle("Enable Auto Gold Bomb Jump", function(bool) goldBombJumpEnabled = bool end)
-
-gbjSection:AddToggle("Auto-Get Gold Bomb", function(bool)
-    autoGetGoldBomb = bool
-    if bool then
-        for _, goldName in ipairs(GOLD_BOMB_NAMES) do
-            pcall(function()
-                Services.ReplicatedStorage.Remotes.Extras.ReplicateToy:InvokeServer(goldName)
-            end)
-        end
-        task.wait(0.1)
-        UnequipGoldBomb()
-    end
-end)
-
-gbjSection:AddToggle("Enable GBJ Big Button", function(e)
-    if e then
-        AddBigButton("goldbombjump_big", "Gold Bomb Jump", FastGoldBombJump, true)
-        local btn = BBSystem.Buttons["goldbombjump_big"]
-        if btn then btn.Size = __UD2(0, gbjBigButtonSize, 0, gbjBigButtonSize * 0.375) end
-    else
-        DeleteBigButton("goldbombjump_big")
-    end
-end)
-
-gbjSection:AddSlider("GBJ Big Button Size", 50, 300, 200, function(value)
-    gbjBigButtonSize = value
-    local btn = BBSystem.Buttons["goldbombjump_big"]
-    if btn then btn.Size = __UD2(0, gbjBigButtonSize, 0, gbjBigButtonSize * 0.375) end
-end)
-
-gbjSection:AddToggle("Enable GBJ Bind Button", function(e)
-    if e then
-        AddBButton("goldbombjump_bind", "GBJ", FastGoldBombJump, true)
-        gbjBindButton = BindableButtons.Buttons["goldbombjump_bind"]
-        if gbjBindButton then
-            local screen = Services.Workspace.CurrentCamera.ViewportSize
-            gbjBindButton.Size = __UD2(gbjBindButtonSize * (screen.Y / screen.X), 0, gbjBindButtonSize, 0)
-            UpdateBButtonText("goldbombjump_bind", gbjOnCooldown and "Wait" or "GBJ", gbjOnCooldown, true)
-        end
-    else
-        DeleteBButton("goldbombjump_bind")
-        gbjBindButton = nil
-    end
-end)
-
-gbjSection:AddSlider("GBJ Bind Button Size", 5, 25, 11, function(value)
-    gbjBindButtonSize = value / 100
-    if gbjBindButton then
-        local screen = Services.Workspace.CurrentCamera.ViewportSize
-        gbjBindButton.Size = __UD2(gbjBindButtonSize * (screen.Y / screen.X), 0, gbjBindButtonSize, 0)
-    end
-end)
-
-gbjSection:AddKeybind("Gold Bomb Jump Keybind", "G", FastGoldBombJump)
