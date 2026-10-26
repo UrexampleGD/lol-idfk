@@ -1,8 +1,8 @@
 -- # Credits to @187 for the actual code
 -- # This was just a fixed version with some improvement.
 -- # If this thing has bugs, report it :)
--- # Have fun using this skidded thing!
--- # Your Welcome!
+
+-- # NO ONE WILL SEE
 
 local Insert = table.insert
 
@@ -466,7 +466,6 @@ local function UpdateBButtonText(Id, Text, IsWaiting, IsGold)
     end
 end
 
--- The icon is placed back in
 local BombJump = Shared.CreateTab("Bomb Jump+", "/UrexampleGD/ok-icon/refs/heads/main/images__2_-removebg-preview")
 
 local AboutSection = BombJump:AddSection("About", "Information")
@@ -488,28 +487,12 @@ end)
 
 pcall(function() Shared.Notify("Bomb Jump+ Loaded", 2) end)
 
-local Section = BombJump:AddSection("Bomb Jump+", "MM2 / MMV")
-
 local Config = {
     CooldownTime = 22.0,
     LaunchPower = 58,
     DefaultSize = 200,
     EquipDelay = 0.6
 }
-
-local BombJumpEnabled = false
-local OnCooldown = false
-local Debounce = false
-local AutoGetBomb = false
-local JustRespawned = false
-local BigButtonSize = Config.DefaultSize
-local BindButtonSize = 0.11
-local BjBindButton = nil
-
-local BombNames = {"FakeBomb"}
-
-local BombJumpMaid = Maid.new()
-RootMaid:GiveTask(BombJumpMaid)
 
 local Sounds = {Click = Instance.new("Sound"), Cooldown = Instance.new("Sound")}
 Sounds.Click.SoundId = "rbxassetid://6895079853"
@@ -521,7 +504,7 @@ local function PlaySound(Snd)
     pcall(function() if Snd then Services.SoundService:PlayLocalSound(Snd) end end)
 end
 
--- FIXED: Strict air check to prevent jumping on stairs/slopes
+-- FIXED: Strict floor check prevents activating while walking up stairs
 local function IsPlayerInAir()
     local Character = LocalPlayer.Character
     if not Character then return false end
@@ -529,12 +512,10 @@ local function IsPlayerInAir()
     local Humanoid = Character:FindFirstChild("Humanoid")
     if not Humanoid then return false end
 
-    -- If touching ground (stairs, slope, floor), do not allow.
     if Humanoid.FloorMaterial ~= Enum.Material.Air then
         return false
     end
 
-    -- Must actually be in a jumping state
     local State = Humanoid:GetState()
     if State == Enum.HumanoidStateType.Jumping or 
        State == Enum.HumanoidStateType.Freefall then
@@ -543,6 +524,27 @@ local function IsPlayerInAir()
 
     return false
 end
+
+local TapMovementThreshold = 10
+local TapTimeThreshold = 0.3
+
+-- ==========================================
+-- STANDARD BOMB JUMP
+-- ==========================================
+local Section = BombJump:AddSection("Bomb Jump+", "MM2 / MMV")
+
+local BombJumpEnabled = false
+local OnCooldown = false
+local Debounce = false
+local AutoGetBomb = false
+local JustRespawned = false
+local BigButtonSize = Config.DefaultSize
+local BindButtonSize = 0.11
+local BjBindButton = nil
+local BombNames = {"FakeBomb"}
+
+local BombJumpMaid = Maid.new()
+RootMaid:GiveTask(BombJumpMaid)
 
 local function ResetCooldown()
     OnCooldown = false
@@ -671,10 +673,7 @@ local function IsHoldingBomb()
 end
 
 local ActiveTouches = {}
-local TapMovementThreshold = 10
-local TapTimeThreshold = 0.3
 
--- FIXED: Uses GiveTasks (PascalCase) to prevent the crash
 BombJumpMaid:GiveTasks(
     Services.UserInputService.InputBegan:Connect(function(Input, Gp)
         if Gp then return end
@@ -763,3 +762,243 @@ Section:AddSlider("BJ Bind Button Size", 5, 25, 11, function(Value)
 end)
 
 Section:AddKeybind("Bomb Jump Keybind", "E", FastBombJump)
+
+
+-- ==========================================
+-- GOLD BOMB JUMP
+-- ==========================================
+local GoldSection = BombJump:AddSection("Gold Bomb Jump+", "MMV")
+
+local GoldBombNames = {"GoldFakeBomb", "GoldBomb"}
+local GoldJumpEnabled = false
+local GoldOnCooldown = false
+local GoldDebounce = false
+local AutoGetGoldBomb = false
+local GoldJustRespawned = false
+local GoldBigButtonSize = 200
+local GoldBindButtonSize = 0.11
+local GoldBindButton = nil
+
+local GoldJumpMaid = Maid.new()
+RootMaid:GiveTask(GoldJumpMaid)
+
+local function GoldResetCooldown()
+    GoldOnCooldown = false
+    local BigBtn = BBSystem.Buttons["goldjump_big"]
+    if BigBtn then BigBtn.Text = "Gold Bomb Jump" end
+    if GoldBindButton then UpdateBButtonText("goldjump_bind", "GBJ", false, true) end
+end
+
+local function GoldStartCooldown()
+    GoldOnCooldown = true
+    GoldDebounce = false
+    local BigBtn = BBSystem.Buttons["goldjump_big"]
+    if BigBtn then BigBtn.Text = "Wait" end
+    if GoldBindButton then UpdateBButtonText("goldjump_bind", "Wait", true, true) end
+    task.spawn(function()
+        for I = 5, 1, -1 do
+            if not GoldOnCooldown then break end
+            local BigBtn = BBSystem.Buttons["goldjump_big"]
+            if BigBtn then BigBtn.Text = tostring(I) end
+            if GoldBindButton then UpdateBButtonText("goldjump_bind", tostring(I), true, true) end
+            task.wait(1)
+        end
+        if GoldOnCooldown then GoldResetCooldown() end
+    end)
+end
+
+local function GoldGetCenterPosition()
+    local Character = LocalPlayer.Character
+    if Character and Character:FindFirstChild("HumanoidRootPart") then
+        local Camera = Services.Workspace.CurrentCamera
+        return Character.HumanoidRootPart.Position + (Camera.CFrame.LookVector * 5)
+    end
+    return nil
+end
+
+local function GoldMakeCharacterJump()
+    local Character = LocalPlayer.Character
+    if Character then
+        local Humanoid = Character:FindFirstChild("Humanoid")
+        if Humanoid then Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end
+
+local function UnequipGoldBomb()
+    task.spawn(function()
+        local Character = LocalPlayer.Character
+        if Character then
+            for _, GoldName in ipairs(GoldBombNames) do
+                local Bomb = Character:FindFirstChild(GoldName)
+                if Bomb then Bomb.Parent = LocalPlayer.Backpack or Character break end
+            end
+        end
+    end)
+end
+
+local function GetAnyGoldBomb()
+    local Character = LocalPlayer.Character
+    if not Character then return false, nil end
+    for _, GoldName in ipairs(GoldBombNames) do
+        local Bomb = Character:FindFirstChild(GoldName)
+        if Bomb then return true, Bomb end
+    end
+    local Backpack = LocalPlayer:FindFirstChild("Backpack")
+    if Backpack then
+        for _, GoldName in ipairs(GoldBombNames) do
+            local Bomb = Backpack:FindFirstChild(GoldName)
+            if Bomb then Bomb.Parent = Character task.wait(0.05) return true, Bomb end
+        end
+    end
+    for Attempt = 1, 3 do
+        for _, GoldName in ipairs(GoldBombNames) do
+            pcall(function() Services.ReplicatedStorage.Remotes.Extras.ReplicateToy:InvokeServer(GoldName) end)
+        end
+        task.wait(0.1)
+        for _, GoldName in ipairs(GoldBombNames) do
+            local Bomb = Character:FindFirstChild(GoldName)
+            if Bomb then return true, Bomb end
+            if Backpack then
+                Bomb = Backpack:FindFirstChild(GoldName)
+                if Bomb then Bomb.Parent = Character task.wait(0.05) return true, Bomb end
+            end
+        end
+        task.wait(0.2)
+    end
+    return false, nil
+end
+
+local function FastGoldBombJump()
+    if not IsPlayerInAir() then return end
+    if GoldOnCooldown or GoldDebounce or GoldJustRespawned then return end
+    GoldDebounce = true
+    local Success, Bomb = GetAnyGoldBomb()
+    if Success and Bomb then
+        local Position = GoldGetCenterPosition()
+        if Position then
+            local Remote = Bomb:FindFirstChild("Remote")
+            if Remote then
+                PlaySound(Sounds.Click)
+                pcall(function() Remote:FireServer(CFrame.new(Position), 50) end)
+            end
+            local Char = LocalPlayer.Character
+            local Root = Char and Char:FindFirstChild("HumanoidRootPart")
+            if Root then
+                local CurrentVelocity = Root.AssemblyLinearVelocity
+                Root.AssemblyLinearVelocity = Vector3.new(CurrentVelocity.X, Config.LaunchPower, CurrentVelocity.Z)
+            end
+            GoldMakeCharacterJump()
+            task.spawn(function() task.wait(Config.EquipDelay) UnequipGoldBomb() end)
+            task.spawn(function() task.wait(0.1) GoldStartCooldown() end)
+        end
+    end
+    task.spawn(function() task.wait(0.5) GoldDebounce = false end)
+end
+
+local function IsHoldingGoldBomb()
+    local Character = LocalPlayer.Character
+    if not Character then return false end
+    for _, GoldName in ipairs(GoldBombNames) do
+        if Character:FindFirstChild(GoldName) then return true end
+    end
+    return false
+end
+
+local GoldActiveTouches = {}
+
+GoldJumpMaid:GiveTasks(
+    Services.UserInputService.InputBegan:Connect(function(Input, Gp)
+        if Gp then return end
+        if Input.UserInputType == Enum.UserInputType.Touch or Input.UserInputType == Enum.UserInputType.MouseButton1 then
+            GoldActiveTouches[Input] = {StartPosition = Input.Position, StartTime = tick(), Moved = false}
+        end
+    end),
+    Services.UserInputService.InputChanged:Connect(function(Input)
+        local Data = GoldActiveTouches[Input]
+        if Data and (Input.Position - Data.StartPosition).Magnitude > TapMovementThreshold then Data.Moved = true end
+    end),
+    Services.UserInputService.InputEnded:Connect(function(Input, Gp)
+        if Gp then GoldActiveTouches[Input] = nil return end
+        local Data = GoldActiveTouches[Input]
+        if Data and not Data.Moved and tick() - Data.StartTime <= TapTimeThreshold then
+            if GoldJumpEnabled and not GoldOnCooldown and not GoldDebounce then
+                if IsHoldingGoldBomb() and IsPlayerInAir() then FastGoldBombJump() end
+            end
+        end
+        GoldActiveTouches[Input] = nil
+    end),
+    LocalPlayer.CharacterAdded:Connect(function()
+        GoldResetCooldown()
+        GoldActiveTouches = {}
+        GoldJustRespawned = true
+        task.wait(1)
+        GoldJustRespawned = false
+        if AutoGetGoldBomb then
+            task.wait(0.2)
+            for _, GoldName in ipairs(GoldBombNames) do
+                pcall(function()
+                    Services.ReplicatedStorage.Remotes.Extras.ReplicateToy:InvokeServer(GoldName)
+                end)
+            end
+            task.wait(0.1)
+            UnequipGoldBomb()
+        end
+    end)
+)
+
+GoldSection:AddLabel("Gold Bomb Jump Options")
+GoldSection:AddToggle("Enable Auto Gold Bomb Jump", function(Bool) GoldJumpEnabled = Bool end)
+
+GoldSection:AddToggle("Auto-Get Gold Bomb", function(Bool)
+    AutoGetGoldBomb = Bool
+    if Bool then
+        for _, GoldName in ipairs(GoldBombNames) do
+            pcall(function()
+                Services.ReplicatedStorage.Remotes.Extras.ReplicateToy:InvokeServer(GoldName)
+            end)
+        end
+        task.wait(0.1)
+        UnequipGoldBomb()
+    end
+end)
+
+GoldSection:AddToggle("Enable GBJ Big Button", function(E)
+    if E then
+        AddBigButton("goldjump_big", "Gold Bomb Jump", FastGoldBombJump, true)
+        local Btn = BBSystem.Buttons["goldjump_big"]
+        if Btn then Btn.Size = __UD2(0, GoldBigButtonSize, 0, GoldBigButtonSize * 0.375) end
+    else
+        DeleteBigButton("goldjump_big")
+    end
+end)
+
+GoldSection:AddSlider("GBJ Big Button Size", 50, 300, 200, function(Value)
+    GoldBigButtonSize = Value
+    local Btn = BBSystem.Buttons["goldjump_big"]
+    if Btn then Btn.Size = __UD2(0, GoldBigButtonSize, 0, GoldBigButtonSize * 0.375) end
+end)
+
+GoldSection:AddToggle("Enable GBJ Bind Button", function(E)
+    if E then
+        AddBButton("goldjump_bind", "GBJ", FastGoldBombJump, true)
+        GoldBindButton = BindableButtons.Buttons["goldjump_bind"]
+        if GoldBindButton then
+            local Screen = Services.Workspace.CurrentCamera.ViewportSize
+            GoldBindButton.Size = __UD2(GoldBindButtonSize * (Screen.Y / Screen.X), 0, GoldBindButtonSize, 0)
+            UpdateBButtonText("goldjump_bind", GoldOnCooldown and "Wait" or "GBJ", GoldOnCooldown, true)
+        end
+    else
+        DeleteBButton("goldjump_bind")
+        GoldBindButton = nil
+    end
+end)
+
+GoldSection:AddSlider("GBJ Bind Button Size", 5, 25, 11, function(Value)
+    GoldBindButtonSize = Value / 100
+    if GoldBindButton then
+        local Screen = Services.Workspace.CurrentCamera.ViewportSize
+        GoldBindButton.Size = __UD2(GoldBindButtonSize * (Screen.Y / Screen.X), 0, GoldBindButtonSize, 0)
+    end
+end)
+
+GoldSection:AddKeybind("Gold Bomb Jump Keybind", "G", FastGoldBombJump)
