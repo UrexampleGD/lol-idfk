@@ -3,6 +3,7 @@
 -- # If this thing has bugs, report it :)
 
 -- # NO ONE WILL SEE
+-- ok
 
 local Insert = table.insert
 
